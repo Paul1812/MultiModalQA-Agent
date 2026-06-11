@@ -380,12 +380,24 @@ from agents.fusion      import MultimodalFusionAgent
 from agents.answer_gen  import AnswerGenerationAgent
 from utils.helpers      import format_sources
 
+# ── helper class for mock upload ──────────────────────────────────────────────
+class MockStreamlitFile:
+    def __init__(self, name: str, content: bytes):
+        self.name = name
+        self.content = content
+        self._cursor = 0
+    def seek(self, offset: int):
+        self._cursor = offset
+    def read(self) -> bytes:
+        return self.content[self._cursor:]
+
 # ── session state ─────────────────────────────────────────────────────────────
 for key, default in [
     ("page",           "landing"),
     ("history",        []),
     ("pipeline_state", {}),
     ("session_stats",  {"queries": 0, "images": 0, "chunks": 0}),
+    ("use_sample_doc", False),
 ]:
     if key not in st.session_state:
         st.session_state[key] = default
@@ -506,10 +518,29 @@ else:
             accept_multiple_files=True,
             label_visibility="collapsed",
         )
+        
+        # 💡 Load sample context file button
+        st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
+        col_sample_a, col_sample_b = st.columns([2, 1])
+        with col_sample_a:
+            if st.button("💡 Load sample_context.txt", use_container_width=True):
+                st.session_state.use_sample_doc = True
+        with col_sample_b:
+            if st.session_state.use_sample_doc:
+                if st.button("❌ Unload", use_container_width=True):
+                    st.session_state.use_sample_doc = False
+                    st.rerun()
+
         if uploaded_docs:
             st.markdown(f"**{len(uploaded_docs)} document(s) loaded**")
             for d in uploaded_docs:
                 st.markdown(f'<span class="tag">📄 {d.name}</span>', unsafe_allow_html=True)
+        
+        if st.session_state.use_sample_doc:
+            st.markdown('<span class="tag" style="background:#0a1510;border-color:#00e676;color:#00e676;">📄 sample_context.txt (Loaded)</span>', unsafe_allow_html=True)
+            st.session_state.session_stats["docs"] = (len(uploaded_docs) if uploaded_docs else 0) + 1
+        else:
+            st.session_state.session_stats["docs"] = len(uploaded_docs) if uploaded_docs else 0
 
     st.markdown("<div style='height:24px'></div>", unsafe_allow_html=True)
     st.markdown('<div class="input-lbl">💬 Ask a Question</div>', unsafe_allow_html=True)
@@ -547,7 +578,13 @@ else:
             t0 = time.time()
             try:
                 classifier = InputClassificationAgent()
-                input_type = classifier.classify(question, uploaded_images, uploaded_docs)
+                
+                # Check for documents including the pre-loaded sample
+                temp_docs = list(uploaded_docs) if uploaded_docs else []
+                if st.session_state.use_sample_doc:
+                    temp_docs.append(MockStreamlitFile("sample_context.txt", b""))
+                    
+                input_type = classifier.classify(question, uploaded_images, temp_docs)
                 st.markdown(f'<div class="alog">✓ Modality classified as: <b>{input_type.upper()}</b></div>', unsafe_allow_html=True)
             except Exception as e:
                 st.error(f"Classification failed: {e}")
@@ -586,10 +623,20 @@ else:
             doc_context = ""
             chunks = []
             try:
-                if uploaded_docs and use_rag:
+                # Merge uploaded docs and sample text doc if enabled
+                docs_to_retrieve = list(uploaded_docs) if uploaded_docs else []
+                if st.session_state.use_sample_doc:
+                    try:
+                        with open("sample_context.txt", "rb") as f_samp:
+                            content = f_samp.read()
+                        docs_to_retrieve.append(MockStreamlitFile("sample_context.txt", content))
+                    except Exception as err_s:
+                        logger.warning(f"Failed to read local sample_context.txt: {err_s}")
+                
+                if docs_to_retrieve and use_rag:
                     ret_agent = TextRetrievalAgent()
                     with st.spinner("Retrieving document context..."):
-                        doc_context = ret_agent.retrieve(question, uploaded_docs, ocr_text)
+                        doc_context = ret_agent.retrieve(question, docs_to_retrieve, ocr_text)
                     chunks = ret_agent.last_chunks
                     st.session_state.session_stats["chunks"] += len(chunks)
                     st.markdown(f'<div class="alog">✓ RAG completed: Retrieved {len(chunks)} relevant document chunks</div>', unsafe_allow_html=True)
