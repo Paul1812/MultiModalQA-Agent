@@ -305,6 +305,58 @@ section[data-testid="stSidebar"] { display: none !important; }
     overflow-y: auto;
 }
 
+/* ── Analytics score cards ── */
+.score-row { display: flex; gap: 14px; margin: 18px 0; }
+.score-card {
+    flex: 1;
+    background: #0d0d0d;
+    border: 1px solid #161616;
+    border-radius: 14px;
+    padding: 26px 20px;
+    text-align: center;
+}
+.sv {
+    font-family: 'Syne', sans-serif;
+    font-size: 3rem;
+    font-weight: 800;
+    line-height: 1;
+    margin-bottom: 6px;
+    color: #7c6af7;
+}
+.sl { font-size: 0.72rem; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: #8888aa; }
+
+/* ── Bar Chart Latency List ── */
+.latency-container {
+    background: #0d0d0d;
+    border: 1px solid #161616;
+    border-radius: 14px;
+    padding: 26px;
+    margin-top: 14px;
+}
+.latency-bar-row {
+    margin-bottom: 16px;
+}
+.latency-info {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #e0e0e0;
+    margin-bottom: 6px;
+}
+.latency-bar-bg {
+    background: #1a1a2e;
+    border-radius: 100px;
+    height: 8px;
+    width: 100%;
+    overflow: hidden;
+}
+.latency-bar-fill {
+    background: linear-gradient(90deg, #7c6af7, #4fc3f7);
+    height: 100%;
+    border-radius: 100px;
+}
+
 /* ── Tabs ── */
 .stTabs [data-baseweb="tab-list"] { gap: 2px; border-bottom: 1px solid #141414; background: transparent; }
 .stTabs [data-baseweb="tab"] { font-family: 'Syne', sans-serif !important; font-weight: 600 !important; font-size: 0.83rem !important; color: #666 !important; padding: 10px 20px !important; background: transparent !important; }
@@ -475,20 +527,24 @@ else:
         else:
             # Running the pipeline steps visually!
             st.markdown('<div class="div"></div>', unsafe_allow_html=True)
+            t_start = time.time()
             
             # Step 1
             st.markdown('<div class="sh"><div class="sn">1</div><div><div class="st-title">MCP Controller</div><div class="st-desc">Establishing Model Context Protocol state and tool availability</div></div></div>', unsafe_allow_html=True)
+            t0 = time.time()
             try:
                 controller = MCPController(model=model_choice, use_ocr=use_ocr, use_rag=use_rag)
                 st.markdown('<div class="alog">✓ Controller initialized successfully</div>', unsafe_allow_html=True)
             except Exception as e:
                 st.error(f"Controller initialization failed: {e}")
                 st.stop()
+            latency_mcp = time.time() - t0
 
             st.markdown('<div class="div"></div>', unsafe_allow_html=True)
 
             # Step 2
             st.markdown('<div class="sh"><div class="sn">2</div><div><div class="st-title">Input Classifier Agent</div><div class="st-desc">Analyzing question modality and context files</div></div></div>', unsafe_allow_html=True)
+            t0 = time.time()
             try:
                 classifier = InputClassificationAgent()
                 input_type = classifier.classify(question, uploaded_images, uploaded_docs)
@@ -496,11 +552,13 @@ else:
             except Exception as e:
                 st.error(f"Classification failed: {e}")
                 st.stop()
+            latency_classify = time.time() - t0
 
             st.markdown('<div class="div"></div>', unsafe_allow_html=True)
 
             # Step 3
             st.markdown('<div class="sh"><div class="sn">3</div><div><div class="st-title">Image Processing Agent</div><div class="st-desc">Performing visual description and layout OCR</div></div></div>', unsafe_allow_html=True)
+            t0 = time.time()
             ocr_text = ""
             image_context = ""
             try:
@@ -518,11 +576,13 @@ else:
             except Exception as e:
                 st.error(f"Image processing failed: {e}")
                 st.stop()
+            latency_image = time.time() - t0
 
             st.markdown('<div class="div"></div>', unsafe_allow_html=True)
 
             # Step 4
             st.markdown('<div class="sh"><div class="sn">4</div><div><div class="st-title">Text Retrieval Agent</div><div class="st-desc">Searching and indexing document text chunks semantically</div></div></div>', unsafe_allow_html=True)
+            t0 = time.time()
             doc_context = ""
             chunks = []
             try:
@@ -538,11 +598,13 @@ else:
             except Exception as e:
                 st.error(f"Text retrieval failed: {e}")
                 st.stop()
+            latency_retrieval = time.time() - t0
 
             st.markdown('<div class="div"></div>', unsafe_allow_html=True)
 
             # Step 5
             st.markdown('<div class="sh"><div class="sn">5</div><div><div class="st-title">Multimodal Fusion Agent</div><div class="st-desc">Aligning and merging vision, OCR, and document signals</div></div></div>', unsafe_allow_html=True)
+            t0 = time.time()
             fused = ""
             try:
                 fusion_agent = MultimodalFusionAgent()
@@ -551,11 +613,13 @@ else:
             except Exception as e:
                 st.error(f"Fusion failed: {e}")
                 st.stop()
+            latency_fusion = time.time() - t0
 
             st.markdown('<div class="div"></div>', unsafe_allow_html=True)
 
             # Step 6
             st.markdown('<div class="sh"><div class="sn">6</div><div><div class="st-title">Answer Generation Agent</div><div class="st-desc">Generating factual answer grounded on fused data</div></div></div>', unsafe_allow_html=True)
+            t0 = time.time()
             try:
                 gen_agent = AnswerGenerationAgent(
                     api_key=api_key,
@@ -565,6 +629,8 @@ else:
                 with st.spinner("Generating answer..."):
                     answer = gen_agent.generate(question, fused, input_type)
                 st.markdown('<div class="alog">✓ Grounded answer generated successfully</div>', unsafe_allow_html=True)
+                latency_answer = time.time() - t0
+                total_latency = time.time() - t_start
                 
                 sources_md = format_sources(chunks)
                 st.session_state.history.append({
@@ -572,6 +638,20 @@ else:
                     "answer": answer,
                     "ocr_text": ocr_text,
                     "sources": sources_md,
+                    "analytics": {
+                        "latencies": {
+                            "MCP Controller": latency_mcp,
+                            "Input Classifier": latency_classify,
+                            "Image Processor": latency_image,
+                            "Text Retrieval": latency_retrieval,
+                            "Fusion Agent": latency_fusion,
+                            "Answer Generator": latency_answer
+                        },
+                        "total_latency": total_latency,
+                        "modality": input_type.upper(),
+                        "chunks_count": len(chunks),
+                        "ocr_length": len(ocr_text)
+                    }
                 })
                 st.session_state.session_stats["queries"] += 1
             except Exception as e:
@@ -597,18 +677,54 @@ else:
             </div>
             """, unsafe_allow_html=True)
             
-            tab_ctx, tab_src = st.tabs([f"🔍 Extracted Context #{len(st.session_state.history)-idx}", f"📚 Sources #{len(st.session_state.history)-idx}"])
+            tab_ctx, tab_src, tab_an = st.tabs([
+                f"🔍 Extracted Context #{len(st.session_state.history)-idx}", 
+                f"📚 Sources #{len(st.session_state.history)-idx}",
+                f"📊 Pipeline Analytics #{len(st.session_state.history)-idx}"
+            ])
+            
             with tab_ctx:
                 if turn.get("ocr_text"):
                     st.markdown("**OCR Extracted Text:**")
                     st.markdown(f'<div class="ocr-box">{turn["ocr_text"]}</div>', unsafe_allow_html=True)
                 else:
                     st.caption("No image OCR text extracted for this query.")
+            
             with tab_src:
                 if turn.get("sources"):
                     st.markdown(turn["sources"])
                 else:
                     st.caption("No semantic RAG documents cited.")
+            
+            with tab_an:
+                an = turn.get("analytics", {})
+                if an:
+                    st.markdown(f"""
+                    <div class="score-row">
+                        <div class="score-card"><div class="sv">{an["total_latency"]:.2f}s</div><div class="sl">Total Speed</div></div>
+                        <div class="score-card"><div class="sv" style="font-size:1.5rem;padding-top:10px;">{an["modality"]}</div><div class="sl">Query Modality</div></div>
+                        <div class="score-card"><div class="sv">{an["chunks_count"]}</div><div class="sl">Citations Checked</div></div>
+                    </div>""", unsafe_allow_html=True)
+                    
+                    st.markdown('<h4 style="font-family:Syne,sans-serif;color:#e0e0e0;margin-top:24px;">⏱ Agent Performance Breakdown</h4>', unsafe_allow_html=True)
+                    
+                    # Latency bar chart
+                    max_l = max(an["latencies"].values()) if max(an["latencies"].values()) > 0 else 1.0
+                    
+                    for name, lat in an["latencies"].items():
+                        pct = int((lat / max_l) * 100)
+                        st.markdown(f"""
+                        <div class="latency-bar-row">
+                            <div class="latency-info">
+                                <span>{name}</span>
+                                <span style="color:#7c6af7;">{lat*1000:.0f} ms</span>
+                            </div>
+                            <div class="latency-bar-bg">
+                                <div class="latency-bar-fill" style="width:{pct}%;"></div>
+                            </div>
+                        </div>""", unsafe_allow_html=True)
+                else:
+                    st.caption("No performance analytics recorded for this query.")
             
             st.markdown("<div class='div'></div>", unsafe_allow_html=True)
 
