@@ -53,3 +53,14 @@ MultiModalQA-Agent/
     ├── __init__.py
     └── helpers.py                  # Format sources and display helpers
 ```
+
+---
+
+## Pipeline Steps
+
+1. **MCP Controller** — Coordinates tool activation, agent task routing, and global workflow state via Model Context Protocol.
+2. **Input Classifier Agent** — Detects input modality (text-only, image-only, or multimodal) to optimize the active agent path.
+3. **Image Processing Agent** — Conducts visual layout understanding via GPT-4 Vision and local Tesseract OCR text extraction.
+4. **Text Retrieval Agent** — Executes semantic document search using FAISS vector indexing and SBERT embeddings.
+5. **Multimodal Fusion Agent** — Aligns and merges visual metadata, OCR extractions, and document chunks into a unified schema.
+6. **Answer Generation Agent** — Produces grounded, explainable responses with source citations (supports OpenAI GPT-4o and offline T5 fallback).
