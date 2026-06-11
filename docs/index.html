@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MultiModalQA-Agent Dashboard</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
+    <!-- FontAwesome icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Main Style Sheet -->
+    <link rel="stylesheet" href="index.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation & Settings -->
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="logo"><i class="fa-solid fa-brain"></i></div>
+                <div class="brand-text">
+                    <h1>MQA</h1>
+                    <p>MultiModal QA Agent</p>
+                </div>
+            </div>
+            
+            <hr class="divider">
+            
+            <div class="settings-section">
+                <h3><i class="fa-solid fa-sliders"></i> Configuration</h3>
+                
+                <div class="form-group">
+                    <label for="apiUrl">Backend API URL</label>
+                    <input type="text" id="apiUrl" value="http://localhost:8000" placeholder="e.g. http://localhost:8000 or tunnel URL">
+                    <span class="help-text">Your local FastAPI URL or tunnel address.</span>
+                </div>
+
+                <div class="form-group">
+                    <label for="apiKey">OpenAI API Key</label>
+                    <div class="password-input-wrapper">
+                        <input type="password" id="apiKey" placeholder="sk-...">
+                        <button type="button" class="toggle-password" id="togglePasswordBtn"><i class="fa-solid fa-eye"></i></button>
+                    </div>
+                </div>
+
+                <div class="form-group toggle-group">
+                    <div class="toggle-item">
+                        <label for="useLocalModel">Use Local Model (Offline)</label>
+                        <input type="checkbox" id="useLocalModel" checked>
+                    </div>
+                </div>
+
+                <div class="form-group toggle-group">
+                    <div class="toggle-item">
+                        <label for="useOcr">Enable OCR</label>
+                        <input type="checkbox" id="useOcr" checked>
+                    </div>
+                    <div class="toggle-item">
+                        <label for="useRag">Enable RAG</label>
+                        <input type="checkbox" id="useRag" checked>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="visionModel">Vision Model</label>
+                    <select id="visionModel">
+                        <option value="gpt-4o">gpt-4o (Default)</option>
+                        <option value="gpt-4-turbo">gpt-4-turbo</option>
+                        <option value="gpt-4-vision-preview">gpt-4-vision-preview</option>
+                    </select>
+                </div>
+            </div>
+
+            <hr class="divider">
+
+            <div class="sidebar-stats">
+                <h3><i class="fa-solid fa-chart-simple"></i> Session Stats</h3>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <span class="stat-value" id="statQueries">0</span>
+                        <span class="stat-label">Queries</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-value" id="statImages">0</span>
+                        <span class="stat-label">Images</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-value" id="statDocs">0</span>
+                        <span class="stat-label">Docs</span>
+                    </div>
+                </div>
+            </div>
+
+            <button class="btn btn-clear-history" id="clearHistoryBtn">
+                <i class="fa-solid fa-trash-can"></i> Clear History
+            </button>
+        </aside>
+
+        <!-- Main Dashboard Content -->
+        <main class="main-content">
+            <header class="main-header">
+                <div class="header-titles">
+                    <h2>MultiModalQA-Agent Dashboard</h2>
+                    <p class="subtitle">Multi-Agent · MCP Orchestration · RAG · Vision · OCR</p>
+                </div>
+                <div class="connection-status" id="connectionStatus">
+                    <span class="status-dot offline"></span>
+                    <span class="status-text">Checking server...</span>
+                </div>
+            </header>
+
+            <div class="dashboard-grid">
+                <!-- Chat & Results Column -->
+                <section class="chat-section">
+                    <div class="chat-container" id="chatContainer">
+                        <!-- Welcome message -->
+                        <div class="welcome-box" id="welcomeBox">
+                            <div class="welcome-icon"><i class="fa-solid fa-robot"></i></div>
+                            <h3>Welcome to MultiModalQA-Agent</h3>
+                            <p>Ask questions about your documents, diagrams, or screenshots. The local orchestration pipeline will process text and visuals through the expert agent network to deliver grounded, explainable answers.</p>
+                            <div class="quick-tips">
+                                <h4>💡 Getting Started Tips:</h4>
+                                <ul>
+                                    <li>Upload files or images using the right panel.</li>
+                                    <li>Ask questions grounded in your uploaded materials.</li>
+                                    <li>Verify the connection status shows green in the header.</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="input-container">
+                        <div class="textarea-wrapper">
+                            <textarea id="questionInput" placeholder="Ask anything about the uploaded content..." rows="3"></textarea>
+                        </div>
+                        <button class="btn btn-run" id="runPipelineBtn">
+                            <span>▶ Run Agent Pipeline</span>
+                        </button>
+                    </div>
+                </section>
+
+                <!-- Files & Pipeline Visualization Column -->
+                <section class="control-panel-section">
+                    <!-- File Uploader -->
+                    <div class="card file-uploader-card">
+                        <h3><i class="fa-solid fa-paperclip"></i> Upload Context</h3>
+                        
+                        <div class="drag-drop-zone" id="dragDropZone">
+                            <i class="fa-solid fa-cloud-arrow-up"></i>
+                            <p>Drag & drop files here or <span>browse files</span></p>
+                            <input type="file" id="fileInput" multiple accept=".png,.jpg,.jpeg,.webp,.txt,.pdf,.md" style="display: none;">
+                        </div>
+
+                        <div class="uploaded-files-list" id="uploadedFilesList">
+                            <!-- Populated dynamically -->
+                        </div>
+                    </div>
+
+                    <!-- Pipeline Tracker -->
+                    <div class="card pipeline-card">
+                        <h3><i class="fa-solid fa-network-wired"></i> Agent Pipeline Status</h3>
+                        
+                        <div class="pipeline-tracker">
+                            <div class="pipeline-step" id="step_mcp">
+                                <div class="step-icon"><i class="fa-solid fa-route"></i></div>
+                                <div class="step-info">
+                                    <h4>MCP Controller</h4>
+                                    <p>Central orchestration tool activation</p>
+                                </div>
+                                <div class="step-status"><i class="fa-regular fa-circle"></i></div>
+                            </div>
+                            
+                            <div class="pipeline-step" id="step_classify">
+                                <div class="step-icon"><i class="fa-solid fa-magnifying-glass-chart"></i></div>
+                                <div class="step-info">
+                                    <h4>Input Classifier</h4>
+                                    <p>Modality classification & validation</p>
+                                </div>
+                                <div class="step-status"><i class="fa-regular fa-circle"></i></div>
+                            </div>
+
+                            <div class="pipeline-step" id="step_image">
+                                <div class="step-icon"><i class="fa-solid fa-eye"></i></div>
+                                <div class="step-info">
+                                    <h4>Image Processor</h4>
+                                    <p>GPT-4 Vision & Tesseract OCR engine</p>
+                                </div>
+                                <div class="step-status"><i class="fa-regular fa-circle"></i></div>
+                            </div>
+
+                            <div class="pipeline-step" id="step_retrieval">
+                                <div class="step-icon"><i class="fa-solid fa-database"></i></div>
+                                <div class="step-info">
+                                    <h4>Text Retrieval</h4>
+                                    <p>FAISS semantic document vector search</p>
+                                </div>
+                                <div class="step-status"><i class="fa-regular fa-circle"></i></div>
+                            </div>
+
+                            <div class="pipeline-step" id="step_fusion">
+                                <div class="step-icon"><i class="fa-solid fa-shuffle"></i></div>
+                                <div class="step-info">
+                                    <h4>Fusion Agent</h4>
+                                    <p>Multimodal context synthesis & alignment</p>
+                                </div>
+                                <div class="step-status"><i class="fa-regular fa-circle"></i></div>
+                            </div>
+
+                            <div class="pipeline-step" id="step_answer">
+                                <div class="step-icon"><i class="fa-solid fa-feather-pointed"></i></div>
+                                <div class="step-info">
+                                    <h4>Answer Generation</h4>
+                                    <p>Grounded context-anchored response</p>
+                                </div>
+                                <div class="step-status"><i class="fa-regular fa-circle"></i></div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+    
+    <!-- Scripts -->
+    <script src="app.js"></script>
+</body>
+</html>
